@@ -1,0 +1,7 @@
+# api/ 에서는 공개 API PHP 파일만 실행할 수 있다.
+# common.php 같은 내부 파일, PHP가 아닌 파일, 폴더 목록은 모두 막는다. (Apache 2.4)
+Options -Indexes
+Require all denied
+<FilesMatch "^(env|upload|measure|history|rules|auth)\.php$">
+    Require all granted
+</FilesMatch>

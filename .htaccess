@@ -1,0 +1,16 @@
+# 프로젝트 루트 (Apache 2.4)
+# - 폴더 목록을 보여주지 않는다.
+# - 설정·문서·숨김 파일, 실행 파일(.exe, .pl 은 XAMPP 기본 설정에서 CGI로 실행될 수 있음)은 웹에서 막는다.
+# - ctool/ history/ work/ tests/ settings/ 는 각 폴더의 .htaccess 로도 막지만, 그 파일이 빠져도 열리지 않도록 여기서 한 번 더 막는다.
+#   (Windows 파일 시스템은 대소문자를 구분하지 않으므로 /CTOOL/ 같은 주소도 막는다)
+Options -Indexes
+DirectoryIndex index.html
+<FilesMatch "^(config\.php|.*\.md|\..*)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "(?i)\.(exe|pl|cgi|bat|cmd)$">
+    Require all denied
+</FilesMatch>
+<If "%{REQUEST_URI} =~ m#/(ctool|history|work|tests|settings)(/|$)#i">
+    Require all denied
+</If>

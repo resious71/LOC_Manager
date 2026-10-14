@@ -1,0 +1,2 @@
+# 이 폴더는 웹에서 직접 열 수 없다. (Apache 2.4)
+Require all denied

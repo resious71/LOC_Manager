@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- 외부 주소로는 어떤 요청도 나가지 않도록 같은 서버('self')만 허용한다 -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>LOC Manager</title>
+  <!-- 제목 앞 📊 아이콘과 같은 그림 (외부 파일 없이 SVG data URI) -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css?v=74">
+</head>
+<body>
+  <header class="page-header">
+    <h1 class="page-title"><span class="title-icon" aria-hidden="true">📊</span>LOC Manager</h1>
+    <!-- 포털(상위 폴더) 첫 화면으로 이동. 아이콘은 htdocs/icons/house.png 를 포털 페이지가 ?icon= 으로 내려준다
+         (Apache 기본 설정의 Alias /icons/ 가 /icons/ 주소를 가로채기 때문) -->
+    <a class="home-link" href="../" title="포털로 이동" aria-label="포털로 이동"><img src="../?icon=house.png" alt="" width="28" height="28"></a>
+    <!-- 환경 점검 요약: 홈 아이콘 바로 아래 (오른쪽 위) -->
+    <section class="env" id="env" aria-live="polite">
+      <span class="env-dot" aria-hidden="true"></span>
+      <span class="env-text" id="env-text">서버 환경을 점검하는 중…</span>
+      <button type="button" class="btn btn-link" id="env-toggle" hidden>자세히</button>
+      <ul class="env-issues" id="env-issues" hidden></ul>
+    </section>
+    <nav class="tab-bar" role="tablist" aria-label="화면 전환">
+      <button type="button" class="tab-button" role="tab" id="tab-query" aria-controls="view-query" aria-selected="true">LOC 조회</button>
+      <button type="button" class="tab-button" role="tab" id="tab-measure" aria-controls="view-measure" aria-selected="false" tabindex="-1">LOC 측정</button>
+      <button type="button" class="tab-button" role="tab" id="tab-history" aria-controls="view-history" aria-selected="false" tabindex="-1">측정 이력</button>
+      <button type="button" class="tab-button" role="tab" id="tab-admin" aria-controls="view-admin" aria-selected="false" tabindex="-1">관리</button>
+    </nav>
+  </header>
+
+  <main class="page" id="page">
+
+    <!-- ===================== LOC 조회 (읽기 전용, 기본 탭) ===================== -->
+    <div id="view-query" role="tabpanel" aria-labelledby="tab-query">
+      <section class="card" aria-labelledby="query-title">
+        <div class="card-head">
+          <h2 id="query-title" class="card-title">LOC 조회</h2>
+          <div class="card-tools">
+            <button type="button" class="btn btn-primary" id="query-reload" title="저장된 이력 목록을 서버에서 다시 읽습니다">새로고침</button>
+          </div>
+        </div>
+        <div class="query-tab-bar" role="tablist" aria-label="조회 단위">
+          <button type="button" class="admin-tab-button admin-tab-pastel-1 active" role="tab" id="query-tab-component" aria-controls="query-component" aria-selected="true">컴포넌트</button>
+          <button type="button" class="admin-tab-button admin-tab-pastel-2" role="tab" id="query-tab-group" aria-controls="query-group" aria-selected="false" tabindex="-1">컴포넌트 그룹</button>
+        </div>
+        <p class="hint" id="query-status" aria-live="polite">불러오는 중…</p>
+        <div class="query-section" id="query-component" role="tabpanel" aria-labelledby="query-tab-component">
+          <div class="query-selects">
+            <label class="query-field"><span class="field-label">컴포넌트</span><select id="qc-component" disabled></select></label>
+            <label class="query-field"><span class="field-label">컴포넌트 버전</span><select id="qc-version" disabled></select></label>
+            <label class="query-field"><span class="field-label">회차</span><select id="qc-run" disabled></select></label>
+          </div>
+        </div>
+        <div class="query-section" id="query-group" role="tabpanel" aria-labelledby="query-tab-group" hidden>
+          <div class="query-selects">
+            <label class="query-field"><span class="field-label">컴포넌트 그룹</span><select id="qg-group" disabled></select></label>
+            <label class="query-field"><span class="field-label">버전</span><select id="qg-version" disabled></select></label>
+            <label class="query-field"><span class="field-label">측정</span><select id="qg-batch" disabled></select></label>
+          </div>
+          <p class="hint" id="qg-progress" aria-live="polite" hidden></p>
+          <div class="alert alert-warn" id="qg-notice" role="status" hidden></div>
+        </div>
+      </section>
+
+      <!-- 컴포넌트 하위 탭: 선택한 컴포넌트의 측정 추이 (측정 이력 탭의 #trend 와 같은 모양, id 접두어 qtrend) -->
+      <section class="card" id="qtrend" hidden aria-labelledby="qtrend-title">
+        <h2 id="qtrend-title" class="card-title">측정 추이</h2>
+        <p class="hint" id="qtrend-sub"></p>
+        <div class="trend-box" id="qtrend-box">
+          <div class="trend-pane">
+            <canvas id="qtrend-chart" role="img" aria-label="최근 10회 측정의 코드·주석·빈 줄 누적 세로 막대 그래프"></canvas>
+          </div>
+          <div class="trend-pane">
+            <canvas id="qtrend-delta-chart" role="img" aria-label="측정 회차별 전체 줄 수 변화량 꺾은선 그래프"></canvas>
+          </div>
+          <p class="chart-empty trend-empty" id="qtrend-empty" hidden></p>
+        </div>
+        <div class="table-wrap">
+          <table class="data trend-table">
+            <thead>
+              <tr><th scope="col">회차</th><th scope="col">버전</th><th scope="col" class="opt">측정 시각</th><th scope="col" class="num">전체</th><th scope="col" class="num">코드</th><th scope="col" class="num opt">주석</th><th scope="col" class="num opt">빈 줄</th><th scope="col" class="num">전체 변화</th></tr>
+            </thead>
+            <tbody id="qtrend-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== 측정 ===================== -->
+    <div id="view-measure" role="tabpanel" aria-labelledby="tab-measure" hidden>
+      <section class="card" aria-labelledby="src-title">
+        <h2 id="src-title" class="card-title">LOC 측정 대상 선택</h2>
+
+        <div class="drop" id="drop">
+          <p class="drop-lead">측정할 <strong>폴더</strong>나 <strong>압축 파일</strong>(zip, tar, tar.gz)을 선택하거나 여기로 끌어다 놓으세요.</p>
+          <p class="drop-note">(전체 파일 크기는 1G 이하를 권장)</p>
+          <div class="drop-actions">
+            <label class="btn src-btn" id="btn-folder">
+              폴더 선택
+              <input type="file" id="pick-folder" class="vh" webkitdirectory directory multiple>
+            </label>
+            <label class="btn src-btn" id="btn-zip" title="zip, tar, tar.gz(.tgz) 파일을 고릅니다">
+              압축 파일 선택
+              <input type="file" id="pick-zip" class="vh" accept=".zip,.tar,.tgz,.gz,application/zip,application/x-tar,application/gzip">
+            </label>
+          </div>
+          <p class="drop-selected" id="selected" hidden></p>
+        </div>
+
+        <p class="notice">선택한 소스는 사내 서버에 임시로 업로드되고, 측정이 끝나면 즉시 삭제됩니다. 서버에는 측정 수치만 저장됩니다.</p>
+
+        <div class="options">
+          <fieldset class="field">
+            <legend>컴포넌트 구분</legend>
+            <label class="radio"><input type="radio" name="mode" value="single" checked> 단일 컴포넌트 <span class="hint">(선택한 폴더/zip 전체 = 컴포넌트 하나)</span></label>
+            <label class="radio"><input type="radio" name="mode" value="byFolder"> 컴포넌트 그룹 <span class="hint">(바로 아래 폴더 하나 = 컴포넌트 하나)</span></label>
+            <hr class="field-sep">
+            <label for="comp-version" class="field-label">컴포넌트 버전 <span class="hint">(선택)</span></label>
+            <input type="text" id="comp-version" class="text-input" maxlength="50" autocomplete="off" spellcheck="false" placeholder="예: 1.4.2, 26B">
+            <span class="hint">이력을 저장할 때 버전도 함께 기록됩니다. 컴포넌트 그룹으로 측정하면<br>모든 컴포넌트에 같은 버전이 붙습니다.</span>
+          </fieldset>
+          <div class="field">
+            <label for="ex-dirs">제외 폴더 <span class="hint">(한 줄에 하나)</span></label>
+            <textarea id="ex-dirs" rows="6" spellcheck="false" autocomplete="off"></textarea>
+          </div>
+          <div class="field">
+            <label for="ex-exts">제외 확장자 <span class="hint">(한 줄에 하나)</span></label>
+            <textarea id="ex-exts" rows="6" spellcheck="false" autocomplete="off" placeholder="예: min.js"></textarea>
+          </div>
+          <div class="field">
+            <label for="ex-files">제외 파일 <span class="hint">(한 줄에 하나)</span></label>
+            <textarea id="ex-files" rows="6" spellcheck="false" autocomplete="off" placeholder="예: package-lock.json&#10;*.generated.cs&#10;(파일 이름 전체, 대소문자 구분, * 사용 가능)"></textarea>
+            <div class="field-actions">
+              <button type="button" class="btn rule-toggle" id="reset-defaults" aria-pressed="true" title="누를 때마다 기본 제외 규칙을 켜고 끕니다 (제외 폴더·제외 확장자·제외 파일 함께)">제외 규칙 기본값</button>
+            </div>
+          </div>
+        </div>
+        <p class="field-error" id="rule-error" role="alert" hidden></p>
+        <p class="hint rule-note" id="rule-note" hidden>제외 규칙이 꺼져 있습니다. node_modules, .git 같은 폴더와 min.js 같은 파일도 모두 올리고 측정합니다.</p>
+
+        <div class="run-row">
+          <button type="button" class="btn btn-primary btn-lg" id="run" disabled>측정 시작</button>
+          <button type="button" class="btn" id="cancel" hidden>취소</button>
+        </div>
+
+        <div class="progress" id="progress" hidden aria-live="polite">
+          <div class="progress-label"><span id="progress-text">준비 중…</span><span id="progress-pct" class="num"></span></div>
+          <div class="bar" role="progressbar" aria-labelledby="progress-text" aria-valuemin="0" aria-valuemax="100"><div class="bar-fill" id="progress-bar"></div></div>
+        </div>
+        <div class="alert alert-error" id="run-error" role="alert" hidden></div>
+      </section>
+
+      <section class="card empty" id="empty-measure">
+        <h2 class="card-title">결과</h2>
+        <p>아직 측정한 결과가 없습니다. 위에서 폴더나 압축 파일을 고른 뒤 <strong>측정 시작</strong>을 누르세요.</p>
+        <p class="hint">기본은 선택한 폴더나 압축 파일 전체를 컴포넌트 하나로 측정합니다. <strong>컴포넌트 그룹</strong>을 고르면 바로 아래 폴더 하나가 컴포넌트 하나가 됩니다. 저장한 이전 측정은 <strong>측정 이력</strong> 탭에서 볼 수 있습니다.</p>
+      </section>
+    </div>
+
+    <!-- ===================== history ===================== -->
+    <div id="view-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+      <section class="card" aria-labelledby="hist-title">
+        <div class="card-head">
+          <h2 id="hist-title" class="card-title">저장된 이력</h2>
+          <div class="card-tools">
+            <input type="search" id="hist-filter" autocomplete="off" spellcheck="false" placeholder="컴포넌트 이름으로 찾기" aria-label="컴포넌트 이름으로 찾기">
+            <button type="button" class="btn btn-primary" id="hist-reload">새로고침</button>
+          </div>
+        </div>
+        <p class="hint" id="hist-status">불러오는 중…</p>
+        <div class="hist-select-bar" id="hist-select-bar">
+          <span id="hist-select-count">선택 0개</span>
+          <button type="button" class="btn btn-primary btn-sm" id="hist-combine" disabled>선택한 결과 함께 보기</button>
+          <button type="button" class="btn btn-sm" id="hist-clear" disabled>선택 해제</button>
+          <span class="hint">체크한 이력을 한 화면(컴포넌트별)으로 봅니다. <strong>묶음</strong> 배지를 누르면 함께 측정한 이력을 한꺼번에 고릅니다.</span>
+          <button type="button" class="btn btn-sm hist-export" id="hist-export" title="저장된 측정 이력 전체(페이지·검색과 관계없이)를 Excel(.xlsx)로 내려받습니다">Export to Excel</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data hist-table" id="hist-table" hidden>
+            <thead>
+              <tr><th scope="col" class="chk"><input type="checkbox" id="hist-check-all" aria-label="이 페이지의 이력 모두 선택"></th><th scope="col">컴포넌트</th><th scope="col">컴포넌트 버전</th><th scope="col">CLOC 버전</th><th scope="col">컴포넌트 그룹</th><th scope="col">날짜</th><th scope="col" class="num">회차</th><th scope="col" class="num">코드</th><th scope="col" class="opt">측정 시각</th></tr>
+            </thead>
+            <tbody id="hist-body"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="hist-pager" hidden>
+          <label class="pager-size">행 수
+            <select id="hist-page-size" aria-label="한 페이지에 보일 행 수">
+              <option value="10">10</option>
+              <option value="15" selected>15</option>
+              <option value="30">30</option>
+              <option value="all">ALL</option>
+            </select>
+          </label>
+          <nav class="pager-pages" id="hist-pages" aria-label="측정 이력 페이지"></nav>
+          <span class="pager-range" id="hist-range"></span>
+        </div>
+      </section>
+
+      <!-- 선택한 이력과 같은 컴포넌트의 측정 추이 -->
+      <section class="card" id="trend" hidden aria-labelledby="trend-title">
+        <h2 id="trend-title" class="card-title">측정 추이</h2>
+        <p class="hint" id="trend-sub"></p>
+        <div class="trend-box" id="trend-box">
+          <div class="trend-pane">
+            <canvas id="trend-chart" role="img" aria-label="최근 10회 측정의 코드·주석·빈 줄 누적 세로 막대 그래프"></canvas>
+          </div>
+          <div class="trend-pane">
+            <canvas id="trend-delta-chart" role="img" aria-label="측정 회차별 전체 줄 수 변화량 꺾은선 그래프"></canvas>
+          </div>
+          <p class="chart-empty trend-empty" id="trend-empty" hidden></p>
+        </div>
+        <div class="table-wrap">
+          <table class="data trend-table">
+            <thead>
+              <tr><th scope="col">회차</th><th scope="col">버전</th><th scope="col" class="opt">측정 시각</th><th scope="col" class="num">전체</th><th scope="col" class="num">코드</th><th scope="col" class="num opt">주석</th><th scope="col" class="num opt">빈 줄</th><th scope="col" class="num">전체 변화</th></tr>
+            </thead>
+            <tbody id="trend-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== 관리 ===================== -->
+    <div id="view-admin" role="tabpanel" aria-labelledby="tab-admin" hidden>
+      <section class="card" aria-label="관리">
+        <div class="admin-lock-row">
+          <span class="hint">관리자 인증됨 · 새로고침하거나 새 탭·새 창에서 열면 다시 비밀번호를 입력해야 합니다.</span>
+          <button type="button" class="btn btn-sm" id="admin-logout">관리 잠그기</button>
+        </div>
+        <div class="alert alert-warn admin-default-pw" id="admin-default-pw" role="status" hidden>
+          <p><strong>초기 비밀번호를 쓰고 있습니다.</strong> 다른 사람이 관리 기능을 쓰지 못하도록 비밀번호를 바꿔 주세요.
+            <button type="button" class="btn btn-sm" id="admin-default-pw-go">비밀번호 변경으로 이동</button></p>
+        </div>
+        <div class="admin-tab-bar" role="tablist" aria-label="관리 메뉴">
+          <button type="button" class="admin-tab-button admin-tab-pastel-1 active" role="tab" id="admin-tab-rules" aria-controls="admin-rules" aria-selected="true">제외 규칙 관리</button>
+          <button type="button" class="admin-tab-button admin-tab-pastel-2" role="tab" id="admin-tab-history" aria-controls="admin-history" aria-selected="false" tabindex="-1">저장 이력 관리</button>
+          <button type="button" class="admin-tab-button admin-tab-pastel-4" role="tab" id="admin-tab-password" aria-controls="admin-password" aria-selected="false" tabindex="-1">비밀번호 변경</button>
+          <button type="button" class="admin-tab-button admin-tab-pastel-3" role="tab" id="admin-tab-guide" aria-controls="admin-guide" aria-selected="false" tabindex="-1">가이드</button>
+        </div>
+        <div class="admin-section" id="admin-rules" role="tabpanel" aria-labelledby="admin-tab-rules">
+          <p class="rules-summary" id="rules-summary">불러오는 중…</p>
+          <form class="admin-add-area rule-add" id="rule-add" autocomplete="off">
+            <select id="rule-add-type" aria-label="규칙 종류">
+              <option value="dir">제외 폴더</option>
+              <option value="ext">제외 확장자</option>
+              <option value="file">제외 파일</option>
+            </select>
+            <input type="text" id="rule-add-pattern" class="rule-input" autocomplete="off" placeholder="패턴 (예: node_modules)" aria-label="패턴" maxlength="100" spellcheck="false">
+            <input type="text" id="rule-add-note" class="rule-input rule-note-input" autocomplete="off" placeholder="설명 (선택)" aria-label="설명" maxlength="200">
+            <label class="check"><input type="checkbox" id="rule-add-enabled" checked> 사용</label>
+            <button type="submit" class="btn btn-primary">+ 규칙 추가</button>
+          </form>
+          <p class="field-error" id="rules-error" role="alert" hidden></p>
+          <div class="rules-toolbar">
+            <select id="rules-filter-type" aria-label="종류로 거르기">
+              <option value="">전체 종류</option>
+              <option value="dir">제외 폴더</option>
+              <option value="ext">제외 확장자</option>
+              <option value="file">제외 파일</option>
+            </select>
+            <input type="search" id="rules-filter-q" autocomplete="off" spellcheck="false" placeholder="패턴·설명 검색" aria-label="패턴·설명 검색">
+            <span class="toolbar-spacer"></span>
+            <button type="button" class="btn" id="rules-reload">새로고침</button>
+            <button type="button" class="btn btn-danger" id="rules-reset">config.php 기본값으로 초기화</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data rules-table">
+              <thead>
+                <tr><th scope="col">종류</th><th scope="col">패턴</th><th scope="col" class="opt">설명</th><th scope="col">사용</th><th scope="col" class="opt">수정 시각</th><th scope="col" class="num">작업</th></tr>
+              </thead>
+              <tbody id="rules-body"></tbody>
+            </table>
+          </div>
+          <p class="hint">패턴은 영문, 숫자, <code>. _ - *</code> 만 쓸 수 있습니다. 확장자는 앞의 점 없이(<code>min.js</code>), 파일은 이름 전체(<code>package-lock.json</code>, <code>*.generated.cs</code>)로 적습니다.
+            <strong>사용</strong>으로 둔 규칙이 LOC 측정 탭의 “제외 규칙 기본값”과 ZIP 측정의 기본 제외 규칙이 됩니다. 이 웹에는 로그인이 없으므로 사내망의 누구나 규칙을 바꿀 수 있습니다.</p>
+        </div>
+        <div class="admin-section" id="admin-history" role="tabpanel" aria-labelledby="admin-tab-history" hidden>
+          <p class="rules-summary" id="hadmin-summary">불러오는 중…</p>
+          <div class="rules-toolbar">
+            <input type="search" id="hadmin-filter" autocomplete="off" spellcheck="false" placeholder="컴포넌트·버전·파일 이름 검색" aria-label="컴포넌트·버전·파일 이름 검색">
+            <span class="toolbar-spacer"></span>
+            <button type="button" class="btn" id="hadmin-reload">새로고침</button>
+            <button type="button" class="btn btn-danger" id="hadmin-delete" disabled>선택한 0개 삭제</button>
+          </div>
+          <p class="field-error" id="hadmin-error" role="alert" hidden></p>
+          <div class="table-wrap">
+            <table class="data rules-table hadmin-table">
+              <thead>
+                <tr><th scope="col" class="chk"><input type="checkbox" id="hadmin-check-all" aria-label="이 페이지의 이력 모두 선택"></th><th scope="col">컴포넌트</th><th scope="col">컴포넌트 버전</th><th scope="col" class="opt">CLOC 버전</th><th scope="col" class="opt">컴포넌트 그룹</th><th scope="col">날짜</th><th scope="col" class="num">회차</th><th scope="col" class="num">코드</th><th scope="col" class="opt">데이터 파일</th><th scope="col" class="num">작업</th></tr>
+              </thead>
+              <tbody id="hadmin-body"></tbody>
+            </table>
+          </div>
+          <div class="pager" id="hadmin-pager" hidden>
+            <label class="pager-size">행 수
+              <select id="hadmin-page-size" aria-label="한 페이지에 보일 행 수">
+                <option value="10">10</option>
+                <option value="15" selected>15</option>
+                <option value="30">30</option>
+                <option value="all">ALL</option>
+              </select>
+            </label>
+            <nav class="pager-pages" id="hadmin-pages" aria-label="저장 이력 페이지"></nav>
+            <span class="pager-range" id="hadmin-range"></span>
+          </div>
+          <p class="hint"><strong>수정</strong>: 컴포넌트 버전만 고칠 수 있습니다. 컴포넌트 이름과 측정 수치·시각·컴포넌트 그룹은 바뀌지 않습니다.
+            <strong>삭제</strong>: 이력 파일을 <code>history/_deleted/</code> 로 옮깁니다. 되살리려면 그 파일을 <code>history/</code> 로 다시 옮기세요. 이 웹에는 로그인이 없으므로 사내망의 누구나 수정·삭제할 수 있습니다.</p>
+        </div>
+
+        <!-- 가이드: 설치·설정·사용법 (정적 문서, README.md 와 같은 내용을 화면용으로 정리) -->
+        <!-- 비밀번호 변경: 입력칸은 이 탭을 열 때만 만든다 (페이지에 비밀번호 칸이 늘 있으면 브라우저가 다른 칸에 자동 완성함) -->
+        <div class="admin-section" id="admin-password" role="tabpanel" aria-labelledby="admin-tab-password" hidden>
+          <p class="hint">관리 탭 비밀번호를 바꿉니다. 바꾸면 다른 PC나 다른 탭에서 열려 있던 관리 화면은 다시 로그인해야 합니다 (이 화면은 그대로 유지).</p>
+          <div id="pw-form-slot"></div>
+          <p class="field-error" id="pw-error" role="alert" hidden></p>
+          <p class="pw-done" id="pw-done" role="status" hidden></p>
+          <ul class="hint pw-rules">
+            <li>4자 이상, 앞뒤에 공백 없이 입력합니다 (영문 기준 72자까지).</li>
+            <li>비밀번호는 서버의 <code>settings/admin_password.json</code> 에 해시(bcrypt)로만 저장되며, 원래 글자는 남지 않습니다.</li>
+            <li>비밀번호를 잊으면 서버에서 <code>settings/admin_password.json</code> 파일을 지우세요. 초기 비밀번호로 돌아갑니다.</li>
+          </ul>
+        </div>
+
+        <div class="admin-section guide" id="admin-guide" role="tabpanel" aria-labelledby="admin-tab-guide" hidden>
+          <nav class="guide-toc" aria-label="가이드 목차">
+            <a href="#guide-overview">1. 개요</a>
+            <a href="#guide-install">2. 설치와 배치</a>
+            <a href="#guide-php">3. php.ini 설정</a>
+            <a href="#guide-folders">4. 폴더와 권한</a>
+            <a href="#guide-tools">5. cloc · lib 파일</a>
+            <a href="#guide-usage">6. 화면 사용법</a>
+            <a href="#guide-rules">7. 제외 규칙</a>
+            <a href="#guide-history">8. 측정 이력 파일</a>
+            <a href="#guide-config">9. 설정값 (config.php)</a>
+            <a href="#guide-security">10. 관리 인증과 접근 제한</a>
+            <a href="#guide-trouble">11. 문제 해결</a>
+          </nav>
+
+          <section id="guide-overview">
+            <h3>1. 개요</h3>
+            <p>컴포넌트(소스 폴더)별 코드 규모를 <strong>cloc</strong> 으로 측정하고, 결과를 서버의 <code>history/</code> 폴더에 JSON 으로 남기는 사내용 웹입니다. XAMPP(Apache + PHP)만으로 동작하며 데이터베이스와 외부 인터넷 연결이 필요 없습니다.</p>
+            <table class="data guide-table">
+              <thead><tr><th scope="col">탭</th><th scope="col">하는 일</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">LOC 조회</th><td>저장된 이력을 <strong>컴포넌트</strong> 또는 <strong>컴포넌트 그룹</strong> 단위로 골라 봅니다 (읽기 전용, 페이지를 열면 보이는 기본 탭).</td></tr>
+                <tr><th scope="row">LOC 측정</th><td>폴더나 압축 파일을 골라 측정하고 결과를 이력으로 저장합니다.</td></tr>
+                <tr><th scope="row">측정 이력</th><td>저장된 이력 목록. 여러 건 함께 보기, 측정 추이, 전체 Excel 내보내기.</td></tr>
+                <tr><th scope="row">관리</th><td>제외 규칙 관리, 저장 이력 관리(버전 수정·삭제), 이 가이드. 비밀번호가 필요합니다.</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section id="guide-install">
+            <h3>2. 설치와 배치</h3>
+            <ol>
+              <li><strong>XAMPP for Windows</strong>(PHP 8.x 포함)를 설치합니다. 기본 위치는 <code>C:\xampp</code> 입니다.</li>
+              <li>프로젝트 폴더를 <code>C:\xampp\htdocs\</code> 아래(예: <code>C:\xampp\htdocs\loc_mgmt</code>)에 복사합니다.</li>
+              <li><code>php.ini</code> 를 확인합니다 (아래 3장, 특히 <code>extension=zip</code>).</li>
+              <li><strong>XAMPP Control Panel</strong> 에서 Apache 의 <strong>Start</strong> 를 누릅니다. <code>php.ini</code> 를 고친 뒤에는 Stop → Start 로 다시 시작해야 반영됩니다.</li>
+              <li>브라우저에서 <code>http://&lt;서버주소&gt;/loc_mgmt/</code> 를 엽니다. 오른쪽 위에 <strong>● 서버 환경 정상</strong> 이 보이면 준비가 끝난 것입니다. 문제가 있으면 원인과 해결 방법이 그 자리(‘자세히’)에 표시됩니다.</li>
+            </ol>
+            <p class="hint">외부 CDN·웹 폰트를 쓰지 않으므로 인터넷이 없는 사내망에서도 그대로 동작합니다.</p>
+          </section>
+
+          <section id="guide-php">
+            <h3>3. php.ini 설정</h3>
+            <p>XAMPP Control Panel → Apache 줄의 <strong>Config</strong> → <strong>PHP (php.ini)</strong> (보통 <code>C:\xampp\php\php.ini</code>).</p>
+            <div class="table-wrap">
+              <table class="data guide-table">
+                <thead><tr><th scope="col">항목</th><th scope="col">권장 값</th><th scope="col">설명</th></tr></thead>
+                <tbody>
+                  <tr><td><code>extension=zip</code></td><td>앞의 <code>;</code> 제거</td><td>업로드한 zip 을 풀 때 필요합니다. <strong>XAMPP 기본값은 꺼져 있습니다.</strong></td></tr>
+                  <tr><td><code>upload_max_filesize</code></td><td>16M 이상</td><td>브라우저가 8MB 조각으로 나눠 보냅니다.</td></tr>
+                  <tr><td><code>post_max_size</code></td><td>16M 이상</td><td><code>upload_max_filesize</code> 이상이어야 합니다.</td></tr>
+                  <tr><td><code>max_execution_time</code></td><td>600 또는 그대로</td><td>측정 중에는 <code>set_time_limit</code> 으로 늘립니다. 그 함수가 막혀 있으면 600 이상으로.</td></tr>
+                  <tr><td><code>memory_limit</code></td><td>256M 이상</td><td></td></tr>
+                  <tr><td><code>disable_functions</code></td><td><code>proc_open</code> 이 없어야 함</td><td>cloc 실행에 <code>proc_open</code> 을 씁니다.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="hint">시간대는 <code>php.ini</code> 의 <code>date.timezone</code> 과 관계없이 <code>config.php</code> 의 <code>APP_TIMEZONE</code>(기본 Asia/Seoul)을 씁니다.</p>
+          </section>
+
+          <section id="guide-folders">
+            <h3>4. 폴더와 권한</h3>
+            <div class="table-wrap">
+              <table class="data guide-table">
+                <thead><tr><th scope="col">폴더</th><th scope="col">용도</th><th scope="col">권한 (Apache 실행 계정)</th></tr></thead>
+                <tbody>
+                  <tr><td><code>ctool/</code></td><td><code>cloc-&lt;버전&gt;.exe</code>, <code>cloc-&lt;버전&gt;.pl</code></td><td>읽기·실행</td></tr>
+                  <tr><td><code>history/</code></td><td>측정 이력 JSON (<code>_deleted/</code> = 삭제한 이력)</td><td><strong>쓰기</strong></td></tr>
+                  <tr><td><code>settings/</code></td><td>제외 규칙(<code>exclude_rules.json</code>), 관리자 비밀번호 해시(<code>admin_password.json</code>), 로그인 실패 기록</td><td><strong>쓰기</strong></td></tr>
+                  <tr><td><code>work/</code></td><td>업로드·압축 해제 임시 폴더 (측정이 끝나면 지움, 남은 것은 24시간 뒤 정리)</td><td><strong>쓰기</strong></td></tr>
+                  <tr><td><code>api/</code>, <code>assets/</code>, <code>lib/</code></td><td>서버 API, 화면 파일, 라이브러리</td><td>읽기</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <ul>
+              <li>XAMPP Control Panel 로 Apache 를 실행하면 로그인한 사용자 계정으로 돌아가 보통 추가 설정이 필요 없습니다.</li>
+              <li>Apache 를 <strong>Windows 서비스</strong>로 설치했다면 서비스 계정에 <code>history</code>, <code>settings</code>, <code>work</code> 폴더의 수정 권한을 주세요 (폴더 속성 → 보안).</li>
+              <li><code>history/ work/ ctool/ settings/ tests/</code> 와 <code>config.php</code>, 실행 파일은 <code>.htaccess</code> 로 웹에서 직접 열 수 없습니다(403). 이 차단이 동작하려면 Apache 설정에 <code>AllowOverride All</code> 이 필요합니다 (XAMPP 기본값).</li>
+            </ul>
+          </section>
+
+          <section id="guide-tools">
+            <h3>5. cloc · lib 파일</h3>
+            <p><strong>cloc 버전 올리기</strong>: <code>ctool/</code> 에 새 버전의 <code>cloc-&lt;버전&gt;.exe</code>(또는 <code>.pl</code>)를 넣기만 하면 됩니다. 서버는 이름 규칙(<code>cloc-숫자.숫자….exe</code>)에 맞는 파일 중 <strong>버전이 가장 높은 것</strong>을 쓰고, 실행되지 않으면 그다음 버전으로 대체합니다. 지금 쓰는 버전은 오른쪽 위 환경 표시와 측정 결과의 “실행 방식”에 나옵니다. 예전 파일은 지우지 않아도 됩니다.</p>
+            <p><strong>Perl</strong>: exe 실행이 실패하고 서버에 Perl 이 있을 때만 <code>.pl</code> 로 대체합니다. Perl 이 PATH 에 없으면 <code>config.php</code> 의 <code>PERL_BIN</code> 에 절대 경로를 적습니다.</p>
+            <p><strong>lib/</strong>: 차트와 zip 생성을 위해 <code>lib/chart.umd.js</code>(Chart.js 4.x), <code>lib/jszip.min.js</code>(JSZip 3.x)가 있어야 합니다. 차트 파일이 없으면 표만 보이고, JSZip 이 없으면 폴더 선택 측정은 안 되고 압축 파일 측정만 됩니다.</p>
+          </section>
+
+          <section id="guide-usage">
+            <h3>6. 화면 사용법</h3>
+            <h4>LOC 측정</h4>
+            <ol>
+              <li><strong>폴더 선택</strong> 또는 <strong>압축 파일 선택</strong>(zip, tar, tar.gz)을 누르거나 점선 영역에 끌어다 놓습니다. 전체 크기는 1GB 이하를 권장합니다.</li>
+              <li><strong>컴포넌트 구분</strong>: <em>단일 컴포넌트</em> = 고른 폴더 전체가 컴포넌트 하나, <em>컴포넌트 그룹</em> = 바로 아래 폴더 하나가 컴포넌트 하나(바로 아래 파일은 <code>_root</code>).</li>
+              <li><strong>컴포넌트 버전</strong>(선택, 50자까지)을 적으면 이력에 함께 저장됩니다. 그룹으로 측정하면 모든 컴포넌트에 같은 버전이 붙습니다.</li>
+              <li>필요하면 제외 폴더·확장자·파일을 고치고 <strong>측정 시작</strong>을 누릅니다. 진행률이 표시되고, 업로드 중에는 취소할 수 있습니다.</li>
+              <li>결과를 확인한 뒤 <strong>history에 저장</strong>을 누르면 컴포넌트마다 이력 파일 하나가 저장됩니다.</li>
+            </ol>
+            <h4>결과 화면 (모든 탭 공통)</h4>
+            <ul>
+              <li><strong>보기</strong>: 언어별 / 하위 폴더별 / 파일 타입별. <strong>기준</strong>: 코드 / 주석 / 빈 줄 / 전체.</li>
+              <li>차트 안쪽 링은 컴포넌트, 바깥 링은 컴포넌트 안의 항목입니다. 컴포넌트가 16개를 넘으면 작은 것은 <code>기타</code> 로 묶습니다(표에는 모두 나옴).</li>
+              <li><strong>Export to Excel</strong> 은 지금 보이는 표를 .xlsx 로 내려받습니다.</li>
+            </ul>
+            <h4>LOC 조회</h4>
+            <ul>
+              <li><strong>컴포넌트</strong>: 컴포넌트 → 버전(높은 버전이 기본) → 회차(최근이 기본)를 고르면 측정 추이와 결과가 나옵니다.</li>
+              <li><strong>컴포넌트 그룹</strong>: 그룹 → 버전(높은 버전이 기본) → 측정을 고르면 그 측정의 컴포넌트를 한 화면에 봅니다. 컴포넌트 이름(표, 범례, 차트 조각)을 누르면 컴포넌트 탭으로 이동합니다. 보기 <em>하위 폴더별</em> 에서는 차트가 그룹 → 컴포넌트 → 하위 폴더 3단계로 그려집니다.</li>
+              <li>탭을 열 때마다 목록을 새로 읽습니다. 다른 사람이 방금 저장한 이력은 <strong>새로고침</strong>으로도 불러올 수 있습니다.</li>
+            </ul>
+            <h4>측정 이력</h4>
+            <ul>
+              <li>이력을 누르면 결과와 측정 추이(최근 10회 막대·증감 꺾은선, 회차 표)를 봅니다.</li>
+              <li>체크한 이력을 <strong>함께 보기</strong>로 한 화면에서 비교하고, 묶음 배지를 누르면 같은 측정의 이력을 한 번에 고릅니다.</li>
+              <li>위의 <strong>Export to Excel</strong> 은 저장된 이력 전체를 내려받습니다.</li>
+            </ul>
+            <h4>관리</h4>
+            <ul>
+              <li><strong>제외 규칙 관리</strong>: 규칙 추가·수정·삭제·사용 끄기, config.php 기본값으로 초기화.</li>
+              <li><strong>저장 이력 관리</strong>: 컴포넌트 버전 수정(이름은 못 바꿈), 이력 삭제(<code>history/_deleted/</code> 로 옮김).</li>
+            </ul>
+          </section>
+
+          <section id="guide-rules">
+            <h3>7. 제외 규칙</h3>
+            <ul>
+              <li><strong>제외 폴더</strong>: 폴더 이름(대소문자 무시, <code>*</code> 사용 가능). 예: <code>node_modules</code>, <code>.git</code>.</li>
+              <li><strong>제외 확장자</strong>: 앞의 점 없이(대소문자 무시). 예: <code>min.js</code>, <code>map</code>.</li>
+              <li><strong>제외 파일</strong>: 파일 이름 전체(<strong>대소문자 구분</strong>, <code>*</code> 사용 가능). 예: <code>package-lock.json</code>, <code>*.generated.cs</code>.</li>
+              <li>쓸 수 있는 글자는 영문, 숫자, <code>. _ - *</code> 입니다.</li>
+              <li>관리 탭에서 <strong>사용</strong>으로 둔 규칙이 LOC 측정 탭의 “제외 규칙 기본값”이 됩니다. 측정 탭에서 그 측정만 고쳐 쓸 수도 있고, 기본값 버튼으로 끄면 제외 없이 모두 측정합니다.</li>
+              <li>폴더를 고르면 브라우저가 제외 대상을 빼고 올리고, 압축 파일은 서버가 cloc 실행 때 제외합니다.</li>
+            </ul>
+          </section>
+
+          <section id="guide-history">
+            <h3>8. 측정 이력 파일</h3>
+            <ul>
+              <li>파일명: <code>컴포넌트_YYMMDDN.json</code> (예: <code>compA_2610071.json</code>). N 은 같은 컴포넌트의 그날 측정 횟수이며 서버가 정합니다. 동시에 저장해도 덮어쓰지 않습니다.</li>
+              <li>내용: 컴포넌트, 버전, 측정 시각, cloc 버전, 제외 규칙, 언어별·하위 폴더별·파일 타입별 줄 수, 측정 묶음 정보. <strong>소스 코드와 파일 경로는 저장하지 않습니다.</strong></li>
+              <li>백업: <code>history/</code> 폴더를 통째로 복사하면 됩니다. 다른 서버로 옮길 때도 이 폴더만 옮기면 이력이 그대로 보입니다.</li>
+              <li>삭제한 이력은 <code>history/_deleted/</code> 에 남습니다. 되살리려면 파일을 <code>history/</code> 로 옮기고 원래 파일명으로 바꿉니다(앞의 삭제 시각 부분 제거).</li>
+              <li>파일 이름에 쓸 수 없는 글자(<code>\ / : * ? " &lt; &gt; |</code>)는 <code>_</code> 로 바뀝니다. 한글 이름은 그대로 저장됩니다.</li>
+            </ul>
+          </section>
+
+          <section id="guide-config">
+            <h3>9. 설정값 (config.php)</h3>
+            <p>프로젝트 루트의 <code>config.php</code> 를 고친 뒤 저장하면 다음 요청부터 바로 적용됩니다 (Apache 재시작 불필요).</p>
+            <div class="table-wrap">
+              <table class="data guide-table">
+                <thead><tr><th scope="col">상수</th><th scope="col">기본값</th><th scope="col">설명</th></tr></thead>
+                <tbody>
+                  <tr><td><code>APP_TIMEZONE</code></td><td>Asia/Seoul</td><td>이력 파일명 날짜, 측정 시각의 기준</td></tr>
+                  <tr><td><code>ADMIN_DEFAULT_PASSWORD</code></td><td>admin</td><td>관리자 초기 비밀번호 (<code>settings/admin_password.json</code> 이 없을 때)</td></tr>
+                  <tr><td><code>CLOC_TIMEOUT_SEC</code></td><td>120</td><td>컴포넌트 하나의 cloc 제한 시간(초). 넘으면 그 컴포넌트만 실패</td></tr>
+                  <tr><td><code>UPLOAD_CHUNK_BYTES</code></td><td>8MB</td><td>업로드 조각 크기 (php.ini 업로드 한도보다 작게)</td></tr>
+                  <tr><td><code>UPLOAD_MAX_BYTES</code></td><td>2GB</td><td>업로드 하나의 최대 크기</td></tr>
+                  <tr><td><code>EXTRACT_MAX_BYTES</code> / <code>EXTRACT_MAX_FILES</code></td><td>2GB / 200,000</td><td>압축 해제 총 크기·파일 수 상한 (압축 폭탄 방지)</td></tr>
+                  <tr><td><code>WORK_RETENTION_SEC</code></td><td>24시간</td><td>정리되지 못한 임시 폴더 보관 시간</td></tr>
+                  <tr><td><code>DEFAULT_EXCLUDE_DIRS</code> / <code>_EXTS</code> / <code>_FILES</code></td><td>node_modules 등</td><td>제외 규칙 초기값 (관리 탭 “config.php 기본값으로 초기화” 때 사용)</td></tr>
+                  <tr><td><code>PERL_BIN</code></td><td>perl</td><td>Perl 실행 파일 (PATH 에 없으면 절대 경로)</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="guide-security">
+            <h3>10. 관리 인증과 접근 제한</h3>
+            <ul>
+              <li>관리 탭 <strong>초기 비밀번호는 <code>admin</code></strong> 입니다. 설치 후 바로 <strong>관리 → 비밀번호 변경</strong>에서 바꾸세요 (초기 비밀번호를 쓰는 동안 관리 탭 위에 안내가 나옵니다).</li>
+              <li>새 비밀번호는 4자 이상, 앞뒤 공백 없이 입력합니다. 서버의 <code>settings/admin_password.json</code> 에 해시로만 저장되며, 확인은 서버가 합니다.</li>
+              <li>비밀번호를 바꾸면 다른 PC·탭에서 열려 있던 관리 화면은 다시 로그인해야 합니다.</li>
+              <li><strong>비밀번호를 잊었을 때</strong>: 서버에서 <code>settings/admin_password.json</code> 파일을 지우면 초기 비밀번호(<code>admin</code>)로 돌아갑니다.</li>
+              <li>인증은 열려 있는 이 페이지에서만 유지됩니다. 새로고침·새 탭·브라우저를 다시 열면 다시 입력해야 하며, <strong>관리 잠그기</strong>로 바로 잠글 수 있습니다.</li>
+              <li>비밀번호를 10분 안에 5번 틀리면 그 PC(IP)는 5분 동안 막힙니다.</li>
+              <li>관리 탭 밖(조회·측정·측정 이력)에는 로그인이 없어 사내망의 누구나 측정하고 저장할 수 있습니다. 접근을 제한하려면 Apache 설정(예: <code>C:\xampp\apache\conf\extra\httpd-xampp.conf</code> 끝)에 IP 제한을 추가하고 Apache 를 다시 시작합니다.</li>
+            </ul>
+            <pre class="guide-code"><code>&lt;Directory "C:/xampp/htdocs/loc_mgmt"&gt;
+    Require ip 10.0.0.0/8 192.168.0.0/16
+&lt;/Directory&gt;</code></pre>
+          </section>
+
+          <section id="guide-trouble">
+            <h3>11. 문제 해결</h3>
+            <dl class="guide-faq">
+              <dt>오른쪽 위에 “서버 환경에 문제가 N건 있습니다”가 보입니다.</dt>
+              <dd>‘자세히’를 누르면 항목별 원인과 해결 방법이 나옵니다. 흔한 원인은 zip 확장 꺼짐(<code>extension=zip</code>), <code>history</code>·<code>work</code> 쓰기 권한, <code>ctool/</code> 의 cloc 파일 누락입니다. php.ini 를 고쳤다면 Apache 를 다시 시작하세요.</dd>
+              <dt>업로드 중 “서버가 받을 수 있는 크기를 넘었습니다(413)”.</dt>
+              <dd>php.ini 의 <code>upload_max_filesize</code>, <code>post_max_size</code> 를 16M 이상으로 올리고 Apache 를 다시 시작합니다.</dd>
+              <dt>일부 컴포넌트가 “제한 시간 초과”로 실패합니다.</dt>
+              <dd>컴포넌트를 나눠 측정하거나 <code>config.php</code> 의 <code>CLOC_TIMEOUT_SEC</code> 를 늘립니다. 나머지 컴포넌트 결과는 정상입니다.</dd>
+              <dt>코드로 인식된 파일이 없다고 나옵니다.</dt>
+              <dd>고른 폴더가 맞는지, 제외 규칙이 너무 넓지 않은지 확인하세요. cloc 이 모르는 확장자는 세지 않습니다(결과 아래 “인식하지 못한 파일”에 나옴).</dd>
+              <dt>차트가 안 보이고 안내 문구만 나옵니다.</dt>
+              <dd><code>lib/chart.umd.js</code> 가 있는지 확인합니다. 표는 차트 없이도 볼 수 있습니다.</dd>
+              <dt>관리 비밀번호를 여러 번 틀려 막혔습니다.</dt>
+              <dd>5분 뒤에 다시 시도하세요. 비밀번호가 기억나지 않으면 서버에서 <code>settings/admin_password.json</code> 을 지워 초기 비밀번호(<code>admin</code>)로 되돌린 뒤 다시 바꾸세요.</dd>
+              <dt>저장한 이력이 조회 탭이나 측정 이력에 보이지 않습니다.</dt>
+              <dd>각 탭의 <strong>새로고침</strong>을 누르세요. 그래도 없으면 <code>history/</code> 폴더에 파일이 있는지, 손상된 JSON 이 아닌지 확인합니다(손상된 파일은 목록에서 빠집니다).</dd>
+              <dt>화면을 고쳤는데 예전 모양이 보입니다.</dt>
+              <dd>브라우저에서 <strong>Ctrl+F5</strong> 로 새로고침합니다.</dd>
+              <dt>오류 원인을 더 자세히 보고 싶습니다.</dt>
+              <dd>Apache 오류 로그 <code>C:\xampp\apache\logs\error.log</code> 와 브라우저 개발자 도구(F12)의 콘솔을 확인합니다.</dd>
+            </dl>
+          </section>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== 결과 (조회·측정·history 공용) ===================== -->
+    <section class="card" id="result" hidden aria-labelledby="result-title">
+      <div class="card-head">
+        <div>
+          <h2 id="result-title" class="card-title">결과</h2>
+          <p class="hint" id="result-sub"></p>
+        </div>
+        <div class="result-tools">
+          <div class="seg-group">
+            <label class="seg-label" for="dim">보기</label>
+            <select id="dim" class="dim-select">
+              <option value="language" selected>언어별</option>
+              <option value="folder">하위 폴더별</option>
+              <option value="ext">파일 타입별</option>
+            </select>
+          </div>
+          <div class="seg-group">
+            <span class="seg-label" id="metric-label">기준</span>
+            <div class="seg" role="radiogroup" aria-labelledby="metric-label" id="metric">
+              <button type="button" role="radio" data-metric="code" aria-checked="true">코드</button>
+              <button type="button" role="radio" data-metric="comment" aria-checked="false">주석</button>
+              <button type="button" role="radio" data-metric="blank" aria-checked="false">빈 줄</button>
+              <button type="button" role="radio" data-metric="total" aria-checked="false">전체</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="save" id="save-box">
+        <h3 class="sub-title">history 저장</h3>
+        <p class="hint">성공한 컴포넌트마다 <code>컴포넌트_YYMMDDN.json</code> 파일 하나로 서버 history 폴더에 저장합니다.</p>
+        <button type="button" class="btn btn-primary" id="save">history에 저장</button>
+        <ul class="save-list" id="save-list"></ul>
+      </div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <div class="chart-area">
+        <div class="chart-box" id="chart-box">
+          <canvas id="chart" role="img" aria-label="컴포넌트와 언어별 줄 수 차트"></canvas>
+          <p class="chart-empty" id="chart-empty" hidden></p>
+        </div>
+        <div class="legend-box">
+          <!-- LOC 조회 → 컴포넌트 그룹 · 하위 폴더별(3레벨 차트)일 때만 보인다 -->
+          <div id="group-legend-block" hidden>
+            <h3 class="sub-title">그룹 <span class="hint">(안쪽 링)</span></h3>
+            <ul class="legend" id="group-legend"></ul>
+          </div>
+          <h3 class="sub-title">컴포넌트 <span class="hint" id="legend-ring">(안쪽 링)</span></h3>
+          <ul class="legend" id="legend"></ul>
+          <p class="hint" id="legend-note"></p>
+          <h3 class="sub-title"><span id="outer-legend-title">언어</span> <span class="hint">(바깥 링)</span></h3>
+          <div class="outer-legend" id="outer-legend"></div>
+          <p class="hint" id="outer-note">바깥 링은 각 컴포넌트 안의 언어이며, 언어마다 다른 색으로 표시합니다 (같은 이름은 같은 색).</p>
+        </div>
+      </div>
+
+      <div class="messages" id="messages"></div>
+
+      <div class="table-head">
+        <h3 class="sub-title">상세</h3>
+        <button type="button" class="btn" id="export-xlsx" title="지금 보이는 표(보기·기준 포함)를 Excel(.xlsx) 파일로 내려받습니다">Export to Excel</button>
+      </div>
+      <p class="hint narrow-only">좁은 화면에서는 선택한 기준 값과 비율만 표시합니다.</p>
+      <div class="table-wrap">
+        <table class="data result-table">
+          <thead>
+            <tr>
+              <th scope="col" id="col-name">컴포넌트 / 언어</th>
+              <th scope="col" class="num" data-col="files">파일</th>
+              <th scope="col" class="num" data-col="code">코드</th>
+              <th scope="col" class="num" data-col="comment">주석</th>
+              <th scope="col" class="num" data-col="blank">빈 줄</th>
+              <th scope="col" class="num" data-col="total">전체</th>
+              <th scope="col" class="num share">비율</th>
+            </tr>
+          </thead>
+          <tbody id="result-body"></tbody>
+          <tfoot id="result-foot"></tfoot>
+        </table>
+      </div>
+
+      <details class="json-preview" id="json-box">
+        <summary id="json-summary">저장될 JSON 미리보기</summary>
+        <pre id="json-pre"></pre>
+      </details>
+    </section>
+  </main>
+
+  <!-- 관리 탭 비밀번호 인증 창 -->
+  <div id="password-modal" class="modal-overlay" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="password-title">
+      <h3 id="password-title">관리자 인증</h3>
+      <p>비밀번호를 입력하세요</p>
+      <div id="password-slot"></div>
+      <p class="field-error" id="password-error" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="password-cancel-btn">취소</button>
+        <button type="button" class="btn btn-primary" id="password-submit-btn">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="lib/jszip.min.js"></script>
+  <script src="lib/chart.umd.js"></script>
+  <script src="assets/xlsx-export.js?v=3"></script>
+  <script src="assets/app.js?v=77"></script>
+</body>
+</html>

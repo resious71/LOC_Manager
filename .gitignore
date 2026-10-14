@@ -1,0 +1,40 @@
+# LOC_Mgmt — GitHub 에 올리지 않을 파일
+# 실행 중에 생기는 데이터·임시 파일과 개인 환경 파일은 빼고, 각 폴더의 .htaccess(웹 접근 차단)는 남긴다.
+# 폴더는 .htaccess 가 있어 저장소에 남고, 빠진 하위 폴더(history/_deleted, work/_tmp)는 서버가 필요할 때 만든다.
+
+# ---------------------------------------------------------------- 실행 데이터 (사내 측정 결과, 인증 기록)
+# 측정 이력 JSON 과 삭제한 이력
+/history/*
+!/history/.htaccess
+
+# 업로드·압축 해제 임시 폴더 (측정이 끝나면 지워지지만 중간에 멈추면 남을 수 있음)
+/work/*
+!/work/.htaccess
+
+# 관리 탭에서 바꾼 제외 규칙(exclude_rules.json, 없으면 config.php 기본값으로 시작)과
+# 비밀번호 잠금 기록(auth_attempts.json, 접속 IP 포함)
+/settings/*
+!/settings/.htaccess
+
+# ---------------------------------------------------------------- 개발용 파일
+# Chart.js 소스 맵 (개발자 도구용, 없어도 동작)
+/lib/*.map
+
+# 로그, 백업, 임시 파일
+*.log
+*.bak
+*.tmp
+*.orig
+*.swp
+*~
+
+# ---------------------------------------------------------------- 편집기·OS
+.vscode/
+.idea/
+*.code-workspace
+.claude/settings.local.json
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
