@@ -23,7 +23,7 @@
 LOC_Mgmt 는 **사내망(intranet) 전용**으로 설계되었습니다. 인터넷에 직접 공개하지 마세요.
 
 - **관리자 비밀번호 초기값은 `admin` 입니다.** 설치 직후 관리 → **비밀번호 변경**에서 꼭 바꿔 주세요. (초기 비밀번호를 쓰는 동안 화면에 경고가 표시됩니다.)
-- 관리 탭을 뺀 측정·조회 기능에는 로그인이 없습니다. 접근을 제한하려면 Apache 에서 IP 제한이나 기본 인증을 추가하세요 ([README.md](README.md) 4장).
+- 관리 탭을 뺀 측정·조회 기능에는 로그인이 없습니다. 접근을 제한하려면 Apache 에서 IP 제한이나 기본 인증을 추가하세요 ([설치·사용 가이드](docs/GUIDE.md#4-인증과-접근-제한) 4장).
 - `.htaccess` 가 동작하도록 `AllowOverride All` 을 유지하세요. `ctool/`, `history/`, `work/`, `settings/`, `tests/` 는 웹에서 열리면 안 됩니다 (403).
 - 업로드한 소스는 측정이 끝나면 `work/` 에서 지워지고, `history/` 에는 경로나 소스 내용 없이 줄 수만 저장됩니다.
 - 함께 들어 있는 cloc, Chart.js, JSZip 의 보안 업데이트도 확인해 주세요 ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).

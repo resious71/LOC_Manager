@@ -13,7 +13,7 @@ LOC_Mgmt 에 관심을 가져 주셔서 감사합니다. 버그 제보, 기능 �
 
 ## 개발 환경
 
-- XAMPP for Windows (Apache 2.4 + **PHP 8.1 이상**). 설치 방법은 [README.md](README.md) 1~3장을 보세요.
+- XAMPP for Windows (Apache 2.4 + **PHP 8.1 이상**). 설치 방법은 [설치·사용 가이드](docs/GUIDE.md) 1~3장을 보세요.
 - 순수 HTML + JavaScript + PHP 입니다. **Composer, 프레임워크, 데이터베이스, 빌드 도구, 외부 CDN을 쓰지 않습니다.** 새 의존성을 넣지 말아 주세요.
 - 요구사항의 기준 문서는 [prd.md](prd.md) 입니다. 동작을 바꾸는 변경은 prd.md 와 어긋나지 않는지 확인해 주세요.
 - 코드 구조와 여러 파일에 걸친 규칙은 [CLAUDE.md](CLAUDE.md) 에 정리되어 있습니다.
@@ -38,7 +38,7 @@ Linux/macOS 에서도 `php tests/run.php` 로 실행할 수 있습니다 (cloc e
 - history 에는 파일 경로나 소스 내용을 절대 저장하지 않습니다.
 - 한글 이름은 `basename()` 대신 `last_segment()` 를 씁니다.
 - `assets/*` 를 바꾸면 `index.html` 의 `?v=N` 을 올려 주세요 (브라우저 캐시).
-- 설치 방법이나 동작이 바뀌면 `README.md` 와 관리 → **가이드** 탭(`index.html`)을 함께 고쳐 주세요.
+- 설치 방법이나 동작이 바뀌면 [docs/GUIDE.md](docs/GUIDE.md) 와 관리 → **가이드** 탭(`index.html`)을 함께 고쳐 주세요. 사용자에게 보이는 변경은 [CHANGELOG.md](CHANGELOG.md) 의 `[Unreleased]` 에 적어 주세요.
 - `ctool/` 의 cloc 파일과 `lib/` 의 라이브러리는 수정하지 않습니다.
 - 주변 코드처럼 한국어 주석을 씁니다.
 
