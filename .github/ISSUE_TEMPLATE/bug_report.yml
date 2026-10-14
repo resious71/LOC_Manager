@@ -1,0 +1,44 @@
+name: 버그 제보 (Bug report)
+description: 잘못 동작하는 부분을 알려 주세요.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        제보해 주셔서 감사합니다. **보안 취약점은 이 양식이 아니라 SECURITY.md 의 방법으로** 알려 주세요.
+        측정한 실제 소스 코드나 사내 정보는 올리지 마세요.
+  - type: textarea
+    id: what
+    attributes:
+      label: 무슨 일이 있었나요?
+      description: 실제로 일어난 일과 기대한 동작을 적어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법
+      placeholder: |
+        1. LOC 측정 탭에서 폴더 선택
+        2. ...
+        3. 오류 메시지: ...
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: 환경
+      description: 화면 맨 위 환경 점검 결과를 펼쳐 주요 항목을 적어 주세요.
+      placeholder: |
+        - OS: Windows 11
+        - XAMPP / PHP 버전: 8.2.12
+        - cloc 실행 방식: exe (cloc-2.10.exe)
+        - 브라우저: Edge 130
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 오류 메시지·로그 (선택)
+      description: 브라우저 개발자 도구 콘솔, Apache error.log 등. 경로나 사내 정보는 가려 주세요.
+      render: text

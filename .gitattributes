@@ -1,0 +1,10 @@
+# 줄 끝은 저장소에 LF 로 저장한다 (Windows 에서 checkout 해도 동작에는 영향 없음)
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.exe binary
+*.png binary
+
+# GitHub 언어 통계에서 함께 배포하는 서드파티 파일은 뺀다
+ctool/** linguist-vendored
+lib/** linguist-vendored
