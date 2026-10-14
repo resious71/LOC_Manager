@@ -42,9 +42,9 @@ function collect_checks(): array
     $procOpen = function_usable('proc_open');
 
     // ---- PHP ----
-    $phpOk = version_compare(PHP_VERSION, '8.0.0', '>=');
+    $phpOk = version_compare(PHP_VERSION, '8.1.0', '>=');
     $c[] = check('php_version', 'PHP 버전', $phpOk ? 'ok' : 'error', PHP_VERSION,
-        $phpOk ? 'PHP 8 이상입니다.' : 'PHP 8.0 이상이 필요합니다. 최신 XAMPP로 업데이트해 주세요.');
+        $phpOk ? 'PHP 8.1 이상입니다.' : 'PHP 8.1 이상이 필요합니다. 최신 XAMPP로 업데이트해 주세요.');
 
     $c[] = check('proc_open', 'proc_open 사용 가능', $procOpen ? 'ok' : 'error', $procOpen ? '사용 가능' : '사용 불가',
         $procOpen ? 'cloc 실행에 사용합니다.'

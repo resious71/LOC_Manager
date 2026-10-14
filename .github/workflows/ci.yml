@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: zip, mbstring
+          coverage: none
+
+      - name: 문법 검사 (php -l)
+        run: |
+          status=0
+          while IFS= read -r -d '' f; do
+            php -l "$f" > /dev/null || status=1
+          done < <(git ls-files -z '*.php')
+          exit $status
+
+      - name: 테스트 (tests/run.php)
+        run: php tests/run.php

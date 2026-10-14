@@ -18,7 +18,7 @@ An intranet web app that measures CLOC per component. The browser selects a loca
 
 ## Stack constraints
 
-- XAMPP for Windows (Apache 2.4 + PHP 8.x), deployed under `htdocs` (e.g. `C:\xampp\htdocs\LOC_Mgmt`).
+- XAMPP for Windows (Apache 2.4 + PHP 8.1+), deployed under `htdocs` (e.g. `C:\xampp\htdocs\LOC_Mgmt`).
 - Plain HTML + JS + PHP only. No Composer, no framework, no database.
 - No external network access at runtime: Chart.js and JSZip are loaded from `lib/` (`chart.umd.js`, `jszip.min.js`) — no CDNs, no web fonts. The UI must still work (table only) if `lib/chart.umd.js` is missing.
 

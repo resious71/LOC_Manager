@@ -1,5 +1,15 @@
 # LOC_Mgmt — 컴포넌트 CLOC 측정 웹
 
+[![CI](https://github.com/resious71/LOC_Manager/actions/workflows/ci.yml/badge.svg)](https://github.com/resious71/LOC_Manager/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777bb4.svg)
+![XAMPP](https://img.shields.io/badge/server-XAMPP%20(Apache%20%2B%20PHP)-orange.svg)
+
+> **English summary** — LOC_Mgmt is a self-hosted intranet web app that measures lines of code per component with [cloc](https://github.com/AlDanial/cloc).
+> Pick a local folder or zip in the browser; the server (XAMPP: Apache + PHP 8.1+, no database, no Composer, no CDN) runs cloc on each component,
+> shows the results as a two-ring pie chart and table, exports to Excel, and keeps history as JSON files with trend charts.
+> The UI and docs are in Korean. See [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [License](LICENSE).
+
 부서 컴포넌트별 코드 규모(CLOC)를 cloc 2.10으로 측정하고 결과를 `history/` 에 JSON으로 남기는 사내용 웹입니다.
 요구사항은 `prd.md`, 구현 단계는 `prompt-1~4.md` 를 참고하세요.
 
@@ -9,7 +19,7 @@
 
 ## 1. 설치와 배치
 
-1. **XAMPP for Windows** (PHP 8.x 포함)를 설치합니다. 기본 위치는 `C:\xampp` 입니다.
+1. **XAMPP for Windows** (PHP 8.1 이상 포함)를 설치합니다. 기본 위치는 `C:\xampp` 입니다.
 2. 이 프로젝트 폴더를 `C:\xampp\htdocs\LOC_Mgmt` 로 복사합니다.
 3. **XAMPP Control Panel** 에서 Apache의 **Start** 를 누릅니다.
    (`php.ini` 를 고친 뒤에는 Stop → Start 로 다시 시작해야 반영됩니다.)
@@ -116,7 +126,7 @@ npm이 있다면: `npm pack chart.js jszip` 으로 받은 tgz 안의 `package/di
    - **관리 탭**: 맨 오른쪽(측정 이력 탭 다음)에 있으며, 하위 탭 `제외 규칙 관리` / `저장 이력 관리` / `비밀번호 변경` / `가이드` 가 있습니다.
      - **가이드**: 설치·php.ini·폴더 권한·cloc/lib 파일·화면 사용법·제외 규칙·이력 파일·config.php 설정값·관리 인증과 접근 제한·문제 해결을 화면에서 볼 수 있게 정리한 문서입니다 (목차를 누르면 해당 절로 이동). 이 README 와 내용이 겹치므로 설치·설정 방법이 바뀌면 `index.html` 의 `#admin-guide` 도 함께 고칩니다.
      - **저장 이력 관리**: 저장된 이력의 컴포넌트 버전을 고치거나(컴포넌트 이름은 바꿀 수 없음), 한 건 또는 여러 건을 삭제합니다. 삭제한 파일은 `history/_deleted/<삭제시각>_<파일명>` 으로 옮겨지며, 되살리려면 `history/` 로 다시 옮기면 됩니다. API: `PUT api/history.php?file=…` `{ componentVersion }` (이름을 바꾸려 하면 400), `DELETE api/history.php?file=…`.
-     - **제외 규칙 관리**: 제외 폴더·확장자·파일 규칙을 추가/수정/삭제하고, 규칙마다 `사용` 을 켜고 끕니다. 종류·검색으로 거를 수 있고 `config.php 기본값으로 초기화` 도 있습니다. **사용 중인 규칙이 LOC 측정 탭의 “제외 규칙 기본값”과 ZIP 측정의 기본 제외 규칙이 됩니다.** 규칙은 `settings/exclude_rules.json` 에 저장되며(웹 접근 차단), 파일이 없으면 `config.php` 의 `DEFAULT_EXCLUDE_*` 로 시작합니다. 같은 종류에 같은 패턴은 한 번만 둘 수 있습니다(제외 파일은 대소문자를 구분해 비교, 폴더·확장자는 구분하지 않음). 로그인이 없으므로 사내망의 누구나 바꿀 수 있고, 삭제·초기화 전에만 확인을 받습니다.
+     - **제외 규칙 관리**: 제외 폴더·확장자·파일 규칙을 추가/수정/삭제하고, 규칙마다 `사용` 을 켜고 끕니다. 종류·검색으로 거를 수 있고 `config.php 기본값으로 초기화` 도 있습니다. **사용 중인 규칙이 LOC 측정 탭의 “제외 규칙 기본값”과 ZIP 측정의 기본 제외 규칙이 됩니다.** 규칙은 `settings/exclude_rules.json` 에 저장되며(웹 접근 차단), 파일이 없으면 `config.php` 의 `DEFAULT_EXCLUDE_*` 로 시작합니다. 같은 종류에 같은 패턴은 한 번만 둘 수 있습니다(제외 파일은 대소문자를 구분해 비교, 폴더·확장자는 구분하지 않음). 관리 탭 비밀번호를 아는 사람은 누구나 바꿀 수 있고, 삭제·초기화 전에만 확인을 받습니다.
 8. **포털로 이동 / 테마** — 제목 오른쪽의 집 아이콘을 누르면 포털 첫 화면(`http://<서버주소>/`)으로 갑니다. 밝은/어두운 테마는 PC(시스템) 설정을 따릅니다.
 
 ### history 파일 형식
@@ -304,3 +314,9 @@ C:\xampp\php\php.exe tests\run.php
 - `php.ini` 에서 zip 확장이 꺼져 있으면 (현재 서버는 켜져 있음) `C:\xampp\php\php.exe -d extension=zip tests\run.php` 로 실행합니다.
 - exe 를 실행할 수 없는 환경(Windows 아님 등)에서는 cloc 이 필요한 항목을 건너뛰고 압축 해제·경로 검사·정리만 검증합니다.
 - `php -S` 내장 서버는 `.htaccess` 를 읽지 않으므로 403 차단은 Apache에서만 확인할 수 있습니다.
+
+## 10. 기여와 보안
+
+- 버그 제보·기능 제안·Pull Request 는 [CONTRIBUTING.md](CONTRIBUTING.md) 를 먼저 읽어 주세요. 모든 참여자는 [행동 강령](CODE_OF_CONDUCT.md)을 따릅니다.
+- 보안 취약점은 공개 이슈 대신 [SECURITY.md](SECURITY.md) 의 방법으로 알려 주세요.
+- **설치 직후 관리자 비밀번호(초기값 `admin`)를 꼭 바꾸고, 인터넷에 직접 공개하지 마세요.**
