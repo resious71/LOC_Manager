@@ -1,0 +1,7 @@
+# GitHub Actions 에서 쓰는 액션(actions/checkout 등)의 새 버전을 매달 확인해 PR 로 알려 준다.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
