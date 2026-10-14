@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-14
+
+### 추가
+- README 개편: 대표 화면, 주요 기능, 화면 갤러리(밝은/어두운 테마), 빠른 시작, 동작 흐름도.
+- 영어 README(`README.en.md`).
+- 화면 스크린샷(`docs/images/`, 가상 데모 프로젝트 `demo-shop` 을 실제로 측정해 캡처).
+- `CHANGELOG.md`, Dependabot(GitHub Actions 버전 확인).
+
+### 변경
+- 자세한 설치·사용 설명을 README 에서 `docs/GUIDE.md` 로 옮기고 목차를 붙임.
+
 ## [1.0.0] - 2026-10-14
 
 첫 공개 버전입니다.
@@ -19,10 +30,11 @@
 - 서버 환경 점검(PHP 버전·확장·`php.ini` 한도·폴더 권한·cloc 실행 여부와 해결 방법 안내).
 - 안전 장치: zip slip·zip bomb 방어, 측정 후 업로드 소스 즉시 삭제, 내부 폴더 웹 접근 차단(`.htaccess`), 비밀번호 잠금.
 - 한글 폴더·파일 이름 지원(CP949 zip 포함), 밝은/어두운 테마.
-- 오픈소스 문서(README 한국어·영어, 설치·사용 가이드, CONTRIBUTING, SECURITY, 행동 강령), 이슈·PR 템플릿, GitHub Actions CI(PHP 8.1~8.4).
+- 오픈소스 문서(CONTRIBUTING, SECURITY, 행동 강령), 이슈·PR 템플릿, GitHub Actions CI(PHP 8.1~8.4).
 
 ### 수정
 - 최소 PHP 버전을 8.1 로 바로잡음. 환경 점검이 8.0 을 통과시키고 있었지만 코드는 8.1 기능을 사용함.
 
-[Unreleased]: https://github.com/resious71/LOC_Manager/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/resious71/LOC_Manager/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/resious71/LOC_Manager/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/resious71/LOC_Manager/releases/tag/v1.0.0
